@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AI Chatbot</title>
+</head>
+<body>
+  <h2>Login / Regisztráció</h2>
+  <input type="email" id="email" placeholder="Email"><br>
+  <input type="password" id="password" placeholder="Jelszó"><br>
+  <button onclick="register()">Regisztráció</button>
+  <button onclick="login()">Belépés</button>
+
+  <h2>Profil – Tudásbázis</h2>
+  <h2>Előfizetés</h2>
+  <select id="tier">
+    <option value="basic">$20 / hó – Alap</option>
+    <option value="pro">$50 / hó – Pro</option>
+    <option value="vip">$100 / hó – VIP</option>
+  </select>
+  <button onclick="startSubscription()">Előfizetés indítása</button>
+  <p id="substatus"><strong>Előfizetés státusz:</strong> ...</p>
+  <p><strong>Előfizetési csomagod:</strong> <span id="usertier">–</span></p>
+  <button onclick="loadProfile()">Betöltés</button><br>
+  <textarea id="kb" style="width: 100%; height: 100px;"></textarea><br>
+  <button onclick="saveProfile()">Mentés</button>
+  <pre id="kbmsg"></pre>
+
+  <h2>Chatbot profil kiválasztása</h2>
+  <select id="chatprofile" onchange="updateProfile()">
+    <option value="support">Ügyfélszolgálat</option>
+    <option value="marketing">Marketing</option>
+    <option value="education">Oktatás</option>
+  </select>
+  <p id="profilemsg"></p>
+
+
+  <h2>Chat</h2>
+  <textarea id="msg" placeholder="Írd be a kérdésed..."></textarea><br>
+  <button onclick="send()">Küldés</button>
+  <pre id="out"></pre>
+
+  <script>
+    async function register() {
+      const res = await fetch('/register', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          email: document.getElementById('email').value,
+          password: document.getElementById('password').value
+        })
+      });
+      const data = await res.json();
+      alert(data.message || 'Sikeres regisztráció!');
+    }
+
+    async function login() {
+      const res = await fetch('/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          email: document.getElementById('email').value,
+          password: document.getElementById('password').value
+        })
+      });
+      const data = await res.json();
+      if (data.access_token) {
+        localStorage.setItem('token', data.access_token);
+        alert("Sikeres belépés!");
+      } else {
+        alert("Hiba a belépésnél.");
+      }
+    }
+
+    async function send() {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          user_id: document.getElementById('email').value,
+          message: document.getElementById('msg').value
+        })
+      });
+      const data = await res.json();
+      document.getElementById('out').innerText = data.response || data.detail || "Nincs válasz.";
+    }
+
+    'tudásbázis szerkesztése'
+    async function loadProfile() {
+      const token = localStorage.getItem('token');
+      const email = document.getElementById('email').value;
+
+      const res = await fetch(`/user/${email}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      document.getElementById('usertier').innerText = data.tier || "–";
+      ;
+
+      const data = await res.json();
+
+      document.getElementById('kb').value = data.knowledge_base || "";
+      document.getElementById('substatus').innerHTML = data.subscription_active
+        ? "<strong>Előfizetés státusz:</strong> ✅ Aktív"
+        : "<strong>Előfizetés státusz:</strong> ⛔ Nem aktív";
+    }
+
+
+    async function saveProfile() {
+      const token = localStorage.getItem('token');
+      const email = document.getElementById('email').value;
+      const knowledge = document.getElementById('kb').value;
+
+      const res = await fetch(`/user/${email}/knowledge`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(knowledge)
+      });
+
+      const data = await res.json();
+      document.getElementById('kbmsg').innerText = data.message || "Sikeres mentés!";
+    }
+
+    async function startSubscription() {
+      const email = document.getElementById('email').value;
+      const tier = document.getElementById('tier').value;
+
+      if (!email) return alert("Előbb add meg az e-mail címed!");
+
+      const res = await fetch('/create-checkout-session', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ email, tier })
+      });
+
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert("Hiba: " + (data.error || "nem sikerült elindítani a fizetést"));
+      }
+    }
+  </script>
+
+<h2>Admin Panel</h2>
+<button onclick="loadUsers()">Felhasználók betöltése</button>
+<div id="userlist"></div>
+<h2>Admin Statisztika</h2>
+<button onclick="loadStats()">Statisztika frissítése</button>
+<pre id="statsout"></pre>
+
+<h3>Napi kérdések statisztika</h3>
+<button onclick="loadQuestionStats()">Napi kérdések lekérése</button>
+<pre id="daystats"></pre>
+
+<h3>Chatnapló export</h3>
+<a href="/admin/chatlog/export" target="_blank">📥 CSV letöltés</a>
+
+  <script>
+  async function loadUsers() {
+    const token = localStorage.getItem('token');
+    const res = await fetch('/admin/users', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const users = await res.json();
+    let html = "<ul>";
+    users.forEach(u => {
+      html += `<li>${u.id} – ${u.subscription_active ? '✅ aktív' : '❌ inaktív'} 
+        <button onclick="activate('${u.id}')">Aktiválás</button></li>`;
+    });
+    html += "</ul>";
+    document.getElementById('userlist').innerHTML = html;
+  }
+
+  async function activate(id) {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`/admin/users/${id}/activate`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    alert(data.message);
+    loadUsers();
+  }
+
+  async function loadStats() {
+    const token = localStorage.getItem('token');
+    const res = await fetch('/admin/stats', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    document.getElementById('statsout').innerText = `
+    Felhasználók száma: ${data.total_users}
+    Aktív előfizetések: ${data.active_subscriptions}`;
+  }
+
+  async function updateProfile() {
+  const token = localStorage.getItem('token');
+  const email = document.getElementById('email').value;
+  const profile = document.getElementById('chatprofile').value;
+
+  const res = await fetch(`/user/${email}/profile`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ profile })
+  });
+
+  const data = await res.json();
+  document.getElementById('profilemsg').innerText = data.message || "Profil frissítve!";
+}
+
+async function loadQuestionStats() {
+  const token = localStorage.getItem('token');
+  const res = await fetch('/admin/stats/questions-per-day', {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  const stats = await res.json();
+  let text = "🗓 Napi kérdések:\n\n";
+  stats.forEach(row => {
+    text += `${row.day}: ${row.count} db\n`;
+  });
+  document.getElementById('daystats').innerText = text;
+}
+
+  </script>
+
+</body>
+</html>
