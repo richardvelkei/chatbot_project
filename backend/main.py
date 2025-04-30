@@ -22,9 +22,12 @@
 
 
 from fastapi import FastAPI
-from chat import chat_router
+from routers.chat_router import router as chat_router
+from routers.chat_router import router as chat_router
 from subscriptions import subscription_router
 from users import user_router
+from backend.db_init import init_db
+
 
 from database import Base, engine
 Base.metadata.create_all(bind=engine)
@@ -36,6 +39,7 @@ from admin import admin_router
 app.include_router(admin_router)
 
 app = FastAPI()
+init_db()
 
 app.include_router(user_router)
 app.include_router(chat_router)
