@@ -1,13 +1,25 @@
 # chatbot_project/
 # ├── backend/
-# │   ├── main.py
+# │   ├── admin.py
+# │   ├── auth.py
 # │   ├── chat.py
+# │   ├── crud.py
+# │   ├── database.py
 # │   ├── knowledge.py
+# │   ├── knowledge.txt
+# │   ├── main.py
+# │   ├── models.py
+# │   ├── models.sql.py
+# │   ├── requirements.txt
 # │   ├── subscriptions.py
-# │   └── requirements.txt
+# │   ├── user.py
+# │   └── .env
 # ├── frontend/
 # │   └── index.html
-# └── .env
+# ├── .gitignore
+# ├── README.md
+# ├── render.yaml
+# └── requirements.txt
 
 # --- backend/requirements.txt --- !!!
 # fastapi
